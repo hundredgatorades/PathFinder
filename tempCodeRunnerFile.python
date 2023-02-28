@@ -1,0 +1,371 @@
+import tkinter as tk
+from tkinter import messagebox
+from tkinter import simpledialog
+class SortedBinaryNode:
+    indent = '  '
+    node_radius = 10
+    x_spacing = 20
+    y_spacing = 20
+
+    def __init__(self, value):
+        self.value = value
+        self.left_child = None
+        self.right_child = None
+
+        self.center = (0, 0)
+        self.subtree_bounds = (
+            self.center[0] - SortedBinaryNode.node_radius, 
+            self.center[1] - SortedBinaryNode.node_radius, 
+            self.center[0] + SortedBinaryNode.node_radius, 
+            self.center[1] + SortedBinaryNode.node_radius)
+
+    def add_node(self, child):
+        if child.value == self.value:
+            raise ValueError(f'Value {self.value} is already in the tree.')
+
+        if child.value < self.value:
+            if self.left_child == None:
+                self.left_child = child
+            else:
+                self.left_child.add_node(child)
+            return
+
+        if self.right_child == None:
+            self.right_child = child
+        else:
+            self.right_child.add_node(child)
+    def __str__(self, level=0):
+        result = level * SortedBinaryNode.indent + f'{self.value}:\n'
+        if self.left_child != None or (self.right_child != None):
+            if self.left_child == None:
+                result += f'{(level + 1) * SortedBinaryNode.indent}None\n'
+            else:
+                result += self.left_child.__str__(level + 1)
+            if self.right_child == None:
+                result += f'{(level + 1) * SortedBinaryNode.indent}None\n'
+            else:
+                result += self.right_child.__str__(level + 1)
+        return result
+
+    def find_node(self, target):
+        if self.value == target:
+            return self
+
+        if target < self.value:
+            if self.left_child == None:
+                return None
+            return self.left_child.find_node(target)
+        else:
+            if self.right_child == None:
+                return None
+            return self.right_child.find_node(target)
+
+    def traverse_preorder(self):
+        result = [self]
+        if self.left_child != None:
+            result += self.left_child.traverse_preorder()
+        if self.right_child != None:
+            result += self.right_child.traverse_preorder()
+        return result
+
+    def traverse_inorder(self):
+        result = []
+        if self.left_child != None:
+            result += self.left_child.traverse_inorder()
+        result.append(self)
+        if self.right_child != None:
+            result += self.right_child.traverse_inorder()
+        return result
+
+    def traverse_postorder(self):
+        result = []
+        if self.left_child != None:
+            result += self.left_child.traverse_postorder()
+        if self.right_child != None:
+            result += self.right_child.traverse_postorder()
+        result.append(self)
+        return result
+
+    def traverse_breadth_first(self):
+        result = []
+        queue = [self]
+        while len(queue) > 0:
+            node = queue.pop(0)
+            result.append(node)
+            
+            if node.left_child != None:
+                queue.append(node.left_child)
+            if node.right_child != None:
+                queue.append(node.right_child)
+
+        return result
+
+    def arrange_subtree(self, xmin, ymin):
+        ymax = ymin + 2 * SortedBinaryNode.node_radius
+        xmax = xmin
+
+        if (self.left_child == None) and (self.right_child == None):
+            xmax += 2 * SortedBinaryNode.node_radius
+            self.subtree_bounds = (xmin, ymin, xmax, ymax)
+        else:
+            ymax += SortedBinaryNode.y_spacing
+
+            if self.left_child != None:
+                self.left_child.arrange_subtree(xmax, ymax)
+
+                xmax = self.left_child.subtree_bounds[2]
+
+                if self.right_child != None:
+                    xmax += SortedBinaryNode.x_spacing
+
+            if self.right_child != None:
+                self.right_child.arrange_subtree(xmax, ymax)
+
+                xmax = self.right_child.subtree_bounds[2]
+
+        if (self.left_child == None) and (self.right_child == None):
+            cx = (self.subtree_bounds[0] + self.subtree_bounds[2]) / 2
+        elif self.left_child == None:
+            cx = self.right_child.center[0]
+            ymax = self.right_child.subtree_bounds[3]
+        elif self.right_child == None:
+            cx = self.left_child.center[0]
+            ymax = self.left_child.subtree_bounds[3]
+        else:
+            cx = (self.left_child.center[0] + self.right_child.center[0]) / 2
+            ymax = max(self.left_child.subtree_bounds[3], self.right_child.subtree_bounds[3])
+        self.subtree_bounds = (xmin, ymin, xmax, ymax)
+
+        cy = ymin + SortedBinaryNode.node_radius
+        self.center = (cx, cy)
+
+    def draw_subtree_links(self, canvas):
+        if self.left_child != None:
+            self.left_child.draw_subtree_links(canvas)
+            canvas.create_line(
+                self.center[0], self.center[1],
+                self.left_child.center[0], self.left_child.center[1],
+                fill='black')
+        if self.right_child != None:
+            self.right_child.draw_subtree_links(canvas)
+            canvas.create_line(
+                self.center[0], self.center[1],
+                self.right_child.center[0], self.right_child.center[1],
+                fill='black')
+
+
+    def draw_subtree_nodes(self, canvas):
+        x0 = self.center[0] - SortedBinaryNode.node_radius
+        y0 = self.center[1] - SortedBinaryNode.node_radius
+        x1 = self.center[0] + SortedBinaryNode.node_radius
+        y1 = self.center[1] + SortedBinaryNode.node_radius
+        canvas.create_oval(x0, y0, x1, y1, fill='white', outline='green')
+        canvas.create_text(self.center, text=self.value, fill='red')
+
+        if self.left_child != None:
+            self.left_child.draw_subtree_nodes(canvas)
+        if self.right_child != None:
+            self.right_child.draw_subtree_nodes(canvas)
+
+    def arrange_and_draw_subtree(self, canvas, xmin, ymin):
+        self.arrange_subtree(xmin, ymin)
+
+        self.draw_subtree_links(canvas)
+
+        self.draw_subtree_nodes(canvas)
+
+    def pop(self, target):
+        if target < self.value:
+            search_left_child = True
+            child_to_search = self.left_child
+        else:
+            search_left_child = False
+            child_to_search = self.right_child
+        if child_to_search == None:
+            raise ValueError(f'Value {target} is not in the tree.')
+
+        if child_to_search.value == target:
+            new_child = child_to_search.remove_subtree_root()
+
+            if search_left_child:
+                self.left_child = new_child
+            else:
+                self.right_child = new_child
+
+            return child_to_search
+        
+        return child_to_search.pop(target)
+        
+    def remove_subtree_root(self):
+        if (self.left_child == None) and (self.right_child == None):
+            return None
+
+        if self.left_child == None:
+            return self.right_child
+        if self.right_child == None:
+            return self.left_child
+
+        if self.left_child.right_child == None:
+            self.left_child.right_child = self.right_child
+            return self.left_child
+        
+        parent_node = self.left_child
+        while parent_node.right_child.right_child != None:
+            parent_node = parent_node.right_child
+
+        rightmost_node = parent_node.right_child
+        parent_node.right_child = rightmost_node.left_child
+ 
+        rightmost_node.left_child = self.left_child
+        rightmost_node.right_child = self.right_child
+        
+
+        return rightmost_node
+
+class App:
+    def __init__(self):
+        self.root = SortedBinaryNode(-1)
+        self.run_tests()
+
+        self.window = tk.Tk()
+        self.window.title('SortedBinaryNode')
+        self.window.protocol('WM_DELETE_WINDOW', self.kill_callback)
+        self.window.geometry('290x320')
+
+        frame = tk.Frame(self.window)
+        frame.pack(padx=10, pady=10, fill=tk.BOTH, expand=True)
+
+        self.value_entry = tk.Entry(frame, width=3)
+        self.value_entry.pack(padx=(10, 0), side='left')
+        self.value_entry.focus_set()
+
+        self.add_button = tk.Button(frame, text='Add', width=8, command=self.add_value)
+        self.add_button.pack(padx=(10, 0), side='left')
+
+        self.pop_button = tk.Button(frame, text='Pop', width=8, command=self.pop_value)
+        self.pop_button.pack(padx=(10, 0), side='left')
+
+        self.find_button = tk.Button(frame, text='Find', width=8, command=self.find_value)
+        self.find_button.pack(padx=(10, 0), side='left')
+
+        self.canvas = tk.Canvas(self.window, bg='white', borderwidth=2, relief=tk.SUNKEN)
+        self.canvas.pack(padx=10, pady=(0, 10), fill=tk.BOTH, expand=True)
+
+        self.window.bind_all('<Control-a>', self.ctrl_a_pressed)
+        self.window.bind_all('<Control-p>', self.ctrl_p_pressed)
+        self.window.bind_all('<Control-f>', self.ctrl_f_pressed)
+        
+        self.draw_tree()
+
+        self.window.focus_force()
+        self.window.mainloop()
+
+    def kill_callback(self):
+        self.window.destroy()
+
+    def draw_tree(self):
+        self.canvas.delete('all')
+        if self.root != None:
+            self.root.arrange_and_draw_subtree(self.canvas, 10, 10)
+
+    def ctrl_a_pressed(self, event):
+        self.add_value()
+    def add_value(self):
+        new_string = self.value_entry.get()
+        if not new_string:
+            return
+
+        self.value_entry.delete(0, 'end')
+        self.value_entry.focus_set()
+
+        try:
+            new_value = int(new_string)
+        except Exception as e:
+            messagebox.showinfo('Find Error',
+                f'Value {new_string} must be an integer.\n{e}')
+            return
+
+        if new_value <= 0:
+            messagebox.showinfo('Add Error',
+                f'Value {new_value} must be a positive integer.')
+            return
+
+        try:
+            new_node = SortedBinaryNode(new_value)
+            self.root.add_node(new_node)
+        except Exception as e:
+            messagebox.showinfo('Add Error',
+                f'Error adding value {new_value} to the tree.\n{e}')
+
+        self.draw_tree()
+
+    def ctrl_p_pressed(self, event):
+        self.pop_value()
+    def pop_value(self):
+        target_string = self.value_entry.get()
+        if not target_string:
+            return
+
+        self.value_entry.delete(0, 'end')
+        self.value_entry.focus_set()
+
+        try:
+            target = int(target_string)
+        except Exception as e:
+            messagebox.showinfo('Pop Error',
+                f'Value {target_string} must be an integer.\n{e}')
+            return
+
+        try:
+            node = self.root.pop(target)
+        except Exception as e:
+            messagebox.showinfo('Pop Error',
+                f'Error removing value {target} from the tree.\n{e}')
+
+        self.draw_tree()
+
+    def ctrl_f_pressed(self, event):
+        self.find_value()
+    def find_value(self):
+        target_string = self.value_entry.get()
+        if not target_string:
+            return
+
+        self.value_entry.delete(0, 'end')
+        self.value_entry.focus_set()
+
+        try:
+            target = int(target_string)
+        except Exception as e:
+            messagebox.showinfo('Find Error',
+                f'Value {target_string} must be an integer.\n{e}')
+            return
+
+        try:
+            node = self.root.find_node(target)
+            if node == None:
+                messagebox.showinfo('Not Found',
+                    f'The value {target} is not in the tree.')
+            else:
+                messagebox.showinfo('Value Found',
+                    f'Found node with value {node.value}.')
+        except Exception as e:
+            messagebox.showinfo('Find Error',
+                f'Error removing value {target} from the tree.\n{e}')
+
+        self.draw_tree()
+
+    def run_tests(self):
+        self.root = SortedBinaryNode(-1)
+        numbers = [60, 35, 76, 21, 42, 71, 89, 17, 24, 74, 11, 23, 72, 75]
+        for number in numbers:
+            node = SortedBinaryNode(number)
+            self.root.add_node(node)
+
+        for number in numbers:
+            node = self.root.find_node(number)
+            assert node.value == number
+        print('Found all nodes')
+
+
+        App()
